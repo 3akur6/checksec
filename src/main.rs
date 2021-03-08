@@ -1,12 +1,9 @@
+mod checksec;
 mod elf;
 
+use crate::checksec::checksec;
 use clap::{App, Arg};
-use colored::*;
-use goblin::Object;
-use std::fs;
-use std::path::Path;
-use std::process::{exit, Command};
-use std::str;
+use std::process::exit;
 
 fn main() {
     let matches = App::new("CheckSec")
@@ -40,54 +37,5 @@ fn main() {
 
     for name in file_names {
         checksec(name);
-    }
-}
-
-fn checksec(name: &str) {
-    use crate::elf::CheckSecResults;
-
-    let output = Command::new("which")
-        .arg(name)
-        .output()
-        .unwrap_or_else(|err| {
-            eprintln!("{}", err);
-            exit(1);
-        });
-
-    if !output.status.success() {
-        eprintln!("`{}` not found", name);
-        exit(1);
-    }
-
-    let which = str::from_utf8(&output.stdout)
-        .unwrap_or_else(|err| {
-            eprintln!("{}", err);
-            exit(1);
-        })
-        .trim();
-    let path = Path::new(which);
-    let file = fs::read(path).unwrap_or_else(|err| {
-        eprintln!("{}", err);
-        exit(1);
-    });
-
-    match Object::parse(&file) {
-        Ok(obj) => {
-            println!("[{}] '{}'", "*".blue().bold(), path.display());
-            match obj {
-                Object::Elf(elf) => {
-                    let checksec = CheckSecResults::parse(&elf);
-                    println!("{}", checksec);
-                }
-                Object::PE(pe) => println!("pe: {:?}", pe),
-                Object::Mach(mach) => println!("mach: {:?}", mach),
-                Object::Archive(archive) => println!("archive: {:?}", &archive),
-                Object::Unknown(magic) => println!("unknown magic: {:?}", magic),
-            }
-        }
-        Err(err) => {
-            eprintln!("{}", err);
-            exit(1);
-        }
     }
 }

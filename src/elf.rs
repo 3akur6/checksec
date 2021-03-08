@@ -1,7 +1,5 @@
-use colored::*;
 use goblin::elf::Elf;
 use goblin::elf::{dynamic, header, program_header};
-use std::fmt;
 
 pub enum Relro {
     None,
@@ -9,7 +7,6 @@ pub enum Relro {
     Full,
 }
 
-#[derive(Debug)]
 pub enum PIE {
     None,
     PIE,
@@ -25,6 +22,7 @@ pub trait Properties {
     fn has_nx(&self) -> bool;
     fn has_pie(&self) -> PIE;
     fn has_fortify(&self) -> bool;
+    fn has_rwx_segments(&self) -> bool;
 }
 
 impl Properties for Elf<'_> {
@@ -100,11 +98,7 @@ impl Properties for Elf<'_> {
         use program_header::{PF_R, PF_W, PF_X, PT_GNU_STACK};
         for p_header in &self.program_headers {
             if p_header.p_type == PT_GNU_STACK {
-                if p_header.p_flags == (PF_R + PF_W + PF_X) {
-                    return false;
-                } else {
-                    return true;
-                }
+                return p_header.p_flags != (PF_R + PF_W + PF_X);
             }
         }
         false
@@ -136,84 +130,16 @@ impl Properties for Elf<'_> {
             false
         }
     }
-}
 
-pub struct CheckSecResults {
-    pub arch: String,
-    pub relro: Relro,
-    pub canary: bool,
-    pub nx: bool,
-    pub pie: PIE,
-    pub fortify: bool,
-    address: u64,
-}
-
-impl CheckSecResults {
-    pub fn parse(elf: &Elf) -> Self {
-        CheckSecResults {
-            arch: elf.arch(),
-            relro: elf.has_relro(),
-            canary: elf.has_canary(),
-            nx: elf.has_nx(),
-            pie: elf.has_pie(),
-            fortify: elf.has_fortify(),
-            address: elf.address(),
+    fn has_rwx_segments(&self) -> bool {
+        use program_header::{PF_R, PF_W, PF_X};
+        for header in &self.program_headers {
+            if header.p_flags & PF_W != 0
+                && (header.p_flags & PF_R != 0 && header.p_flags & PF_X != 0 || !self.has_nx())
+            {
+                return true;
+            }
         }
-    }
-}
-
-impl fmt::Display for CheckSecResults {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let padding = "    ";
-        writeln!(f, "{}{:<10}{}", padding, "Arch:", self.arch)?;
-        writeln!(
-            f,
-            "{}{:<10}{}",
-            padding,
-            "RELRO:",
-            match self.relro {
-                Relro::None => "No RELRO".red(),
-                Relro::Partial => "Partial RELRO".yellow(),
-                Relro::Full => "Full RELRO".green(),
-            }
-        )?;
-        writeln!(
-            f,
-            "{}{:<10}{}",
-            padding,
-            "Stack:",
-            match self.canary {
-                true => "Canary found".green(),
-                false => "No canary found".red(),
-            }
-        )?;
-        writeln!(
-            f,
-            "{}{:<10}{}",
-            padding,
-            "NX:",
-            match self.nx {
-                true => "NX enabled".green(),
-                false => "NX disabled".red(),
-            }
-        )?;
-        write!(
-            f,
-            "{}{:<10}{}",
-            padding,
-            "PIE:",
-            match self.pie {
-                PIE::PIE | PIE::DSO => "PIE enabled".to_string().green(),
-                _ => {
-                    format!("No PIE ({:#x})", self.address).red()
-                }
-            }
-        )?;
-
-        if self.fortify {
-            writeln!(f, "")?;
-            write!(f, "{}{:<10}{}", padding, "FORTIFY:", "Enabled".green())?;
-        }
-        Ok(())
+        false
     }
 }
