@@ -3,6 +3,7 @@ mod elf;
 
 use crate::checksec::checksec;
 use clap::{App, Arg};
+use std::path::Path;
 use std::process::exit;
 
 fn main() {
@@ -36,6 +37,13 @@ fn main() {
     });
 
     for name in file_names {
-        checksec(name);
+        match Path::new(name).canonicalize() {
+            Ok(path) => {
+                if let Err(err) = checksec(path.as_path()) {
+                    eprintln!("{}", err);
+                }
+            }
+            Err(err) => eprintln!("'{}': {}", name, err),
+        };
     }
 }

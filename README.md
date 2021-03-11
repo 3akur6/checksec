@@ -22,23 +22,12 @@ ARGS:
 ```
 Examples
 --------
-binary detected from env
-```zsh
-$ checksec bash
-[*] '/usr/bin/bash'
-    Arch:     X86_64-64-little
-    RELRO:    Partial RELRO
-    Stack:    Canary found
-    NX:       NX enabled
-    PIE:      PIE enabled
-    FORTIFY:  Enabled
-```
 binary from specified (relative or absolute) path
 ```zsh
 $ ls
 start
 
-$ checksec ./start               # sample from https://pwnable.tw/challenge/#1
+$ checksec start               # sample from https://pwnable.tw/challenge/#1
 [*] '/root/pwn/start'
     Arch:     386-32-little
     RELRO:    No RELRO
@@ -48,19 +37,19 @@ $ checksec ./start               # sample from https://pwnable.tw/challenge/#1
 ```
 multiple binaries checking
 ```zsh
-$ checksec grep awk
-[*] '/usr/bin/grep'
-    Arch:     X86_64-64-little
-    RELRO:    Full RELRO
-    Stack:    Canary found
-    NX:       NX enabled
-    PIE:      PIE enabled
-    FORTIFY:  Enabled
-[*] '/usr/bin/awk'
-    Arch:     X86_64-64-little
-    RELRO:    Full RELRO
-    Stack:    Canary found
-    NX:       NX enabled
-    PIE:      PIE enabled
-    FORTIFY:  Enabled
+$ checksec start star b0verflow
+[*] '/root/pwn/start'
+    Arch:     386-32-little
+    RELRO:    No RELRO
+    Stack:    No canary found
+    NX:       NX disabled
+    PIE:      No PIE (0x8048000)
+'star': No such file or directory (os error 2) # wrong spelling, output redirect to stderr
+[*] '/root/pwn/b0verfl0w'      # sample from 'X-CTF Quals 2016 - b0verfl0w'
+    Arch:     386-32-little
+    RELRO:    Partial RELRO
+    Stack:    No canary found
+    NX:       NX disabled
+    PIE:      No PIE (0x8048000)
+    RWX:      Has RWX segments
 ```

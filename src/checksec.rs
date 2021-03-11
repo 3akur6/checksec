@@ -1,11 +1,10 @@
 use colored::*;
 use goblin::elf::Elf;
 use goblin::Object;
+use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::path::Path;
-use std::process::{exit, Command};
-use std::str;
 
 use crate::elf::{Properties, Relro, PIE};
 
@@ -96,31 +95,8 @@ impl fmt::Display for CheckSecResults {
     }
 }
 
-pub fn checksec(name: &str) {
-    let output = Command::new("which")
-        .arg(name)
-        .output()
-        .unwrap_or_else(|err| {
-            eprintln!("{}", err);
-            exit(1);
-        });
-
-    if !output.status.success() {
-        eprintln!("`{}` not found", name);
-        exit(1);
-    }
-
-    let which = str::from_utf8(&output.stdout)
-        .unwrap_or_else(|err| {
-            eprintln!("{}", err);
-            exit(1);
-        })
-        .trim();
-    let path = Path::new(which);
-    let file = fs::read(path).unwrap_or_else(|err| {
-        eprintln!("{}", err);
-        exit(1);
-    });
+pub fn checksec(path: &Path) -> Result<(), Box<dyn Error>> {
+    let file = fs::read(path)?;
 
     match Object::parse(&file) {
         Ok(obj) => {
@@ -135,10 +111,8 @@ pub fn checksec(name: &str) {
                 Object::Archive(archive) => println!("archive: {:?}", &archive),
                 Object::Unknown(magic) => println!("unknown magic: {:?}", magic),
             }
+            Ok(())
         }
-        Err(err) => {
-            eprintln!("{}", err);
-            exit(1);
-        }
+        Err(err) => Err(Box::new(err)),
     }
 }
